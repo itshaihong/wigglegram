@@ -27,6 +27,24 @@ Reboot after installation:
 sudo reboot
 ```
 
+If the script appears to stop after `Connection ... successfully added`, it is waiting for NetworkManager to bring up `wlan0` in AP mode. The updated script times out and prints diagnostics. Common fixes:
+
+```bash
+sudo rfkill unblock wifi
+sudo nmcli radio wifi on
+sudo nmcli device set wlan0 managed yes
+sudo nmcli device disconnect wlan0
+sudo nmcli connection up wigglegram-ap
+```
+
+If it still fails, reboot and run:
+
+```bash
+nmcli device status
+nmcli connection show
+sudo nmcli connection up wigglegram-ap
+```
+
 ## Install AP mode on older Raspberry Pi OS
 
 On the Raspberry Pi:

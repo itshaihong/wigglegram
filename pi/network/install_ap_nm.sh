@@ -7,6 +7,8 @@ AP_SSID="${AP_SSID:-WIGGLEGRAM_AP}"
 AP_PASSWORD="${AP_PASSWORD:-Wigglegram2026}"
 AP_COUNTRY="${AP_COUNTRY:-US}"
 AP_ADDRESS="${AP_ADDRESS:-192.168.50.1/24}"
+AP_CHANNEL="${AP_CHANNEL:-6}"
+CONNECT_TIMEOUT_SECONDS="${CONNECT_TIMEOUT_SECONDS:-30}"
 
 if [ "$EUID" -ne 0 ]; then
   echo "Run with sudo: sudo ./install_ap_nm.sh"
@@ -30,6 +32,11 @@ fi
 echo "Creating NetworkManager access point '${AP_SSID}' on ${AP_INTERFACE}"
 nmcli connection delete "${AP_CONNECTION}" >/dev/null 2>&1 || true
 
+echo "Preparing ${AP_INTERFACE}"
+rfkill unblock wifi || true
+nmcli radio wifi on
+nmcli device disconnect "${AP_INTERFACE}" >/dev/null 2>&1 || true
+
 nmcli connection add \
   type wifi \
   ifname "${AP_INTERFACE}" \
@@ -40,12 +47,30 @@ nmcli connection add \
 nmcli connection modify "${AP_CONNECTION}" \
   802-11-wireless.mode ap \
   802-11-wireless.band bg \
+  802-11-wireless.channel "${AP_CHANNEL}" \
   ipv4.method shared \
   ipv4.addresses "${AP_ADDRESS}" \
   ipv6.method ignore \
   wifi-sec.key-mgmt wpa-psk \
-  wifi-sec.psk "${AP_PASSWORD}"
+  wifi-sec.psk "${AP_PASSWORD}" \
+  connection.autoconnect yes
 
-nmcli connection up "${AP_CONNECTION}"
+echo "Starting AP connection, timeout ${CONNECT_TIMEOUT_SECONDS}s"
+if ! timeout "${CONNECT_TIMEOUT_SECONDS}" nmcli connection up "${AP_CONNECTION}"; then
+  echo
+  echo "Failed or timed out while starting the AP."
+  echo "Useful diagnostics:"
+  nmcli device status || true
+  nmcli connection show || true
+  echo
+  echo "Try rebooting, then run:"
+  echo "  sudo nmcli connection up ${AP_CONNECTION}"
+  echo
+  echo "If wlan0 is unmanaged, run:"
+  echo "  sudo nmcli device set ${AP_INTERFACE} managed yes"
+  exit 1
+fi
+
+nmcli device status
 
 echo "Done. Pi AP is ${AP_SSID} at ${AP_ADDRESS}. ESP32-CAM should use 192.168.50.11."
