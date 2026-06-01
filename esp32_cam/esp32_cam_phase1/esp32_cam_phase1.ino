@@ -28,8 +28,22 @@ const char *WIFI_PASSWORD = "Wigglegram2026";
 IPAddress localIp(192, 168, 50, 11);
 IPAddress gateway(192, 168, 50, 1);
 IPAddress subnet(255, 255, 255, 0);
+IPAddress dns(192, 168, 50, 1);
 
 WebServer server(80);
+
+String wifiStatusName(wl_status_t status) {
+  switch (status) {
+    case WL_IDLE_STATUS: return "IDLE";
+    case WL_NO_SSID_AVAIL: return "NO_SSID";
+    case WL_SCAN_COMPLETED: return "SCAN_COMPLETED";
+    case WL_CONNECTED: return "CONNECTED";
+    case WL_CONNECT_FAILED: return "CONNECT_FAILED";
+    case WL_CONNECTION_LOST: return "CONNECTION_LOST";
+    case WL_DISCONNECTED: return "DISCONNECTED";
+    default: return "UNKNOWN";
+  }
+}
 
 framesize_t parseFrameSize(const String &value) {
   if (value == "QQVGA") return FRAMESIZE_QQVGA;
@@ -166,15 +180,51 @@ void handleSleep() {
 }
 
 void connectWiFi() {
+  WiFi.disconnect(true, true);
+  delay(300);
   WiFi.mode(WIFI_STA);
-  WiFi.setSleep(true);
-  WiFi.config(localIp, gateway, subnet);
+  WiFi.setSleep(false);
+  WiFi.config(localIp, gateway, subnet, dns);
+
+  Serial.println("Scanning for Wi-Fi networks");
+  int networkCount = WiFi.scanNetworks();
+  bool foundTarget = false;
+  for (int i = 0; i < networkCount; i++) {
+    String ssid = WiFi.SSID(i);
+    Serial.print("  ");
+    Serial.print(ssid);
+    Serial.print(" RSSI=");
+    Serial.print(WiFi.RSSI(i));
+    Serial.print(" channel=");
+    Serial.println(WiFi.channel(i));
+    if (ssid == WIFI_SSID) {
+      foundTarget = true;
+    }
+  }
+  if (!foundTarget) {
+    Serial.print("Target SSID not found: ");
+    Serial.println(WIFI_SSID);
+  }
+
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.print("Connecting to Wi-Fi");
-  while (WiFi.status() != WL_CONNECTED) {
+  unsigned long startedAt = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - startedAt < 30000) {
     delay(500);
+    wl_status_t status = WiFi.status();
     Serial.print(".");
+    Serial.print(static_cast<int>(status));
+    Serial.print("(");
+    Serial.print(wifiStatusName(status));
+    Serial.print(")");
+  }
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println();
+    Serial.print("Wi-Fi connection failed. Final status: ");
+    Serial.println(wifiStatusName(WiFi.status()));
+    delay(5000);
+    ESP.restart();
   }
   Serial.println();
   Serial.print("ESP32-CAM IP: ");

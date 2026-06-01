@@ -95,9 +95,12 @@ def parse_cameras(raw_config: dict[str, Any]) -> list[Camera]:
 
 
 def run(config_path: Path) -> None:
+    config_path = config_path.resolve()
     raw_config = load_config(config_path)
     cameras = parse_cameras(raw_config)
     output_dir = Path(raw_config.get("output_dir", "captures"))
+    if not output_dir.is_absolute():
+        output_dir = config_path.parent / output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if len(cameras) != 1:

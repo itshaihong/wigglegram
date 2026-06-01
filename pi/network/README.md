@@ -37,6 +37,18 @@ sudo nmcli device disconnect wlan0
 sudo nmcli connection up wigglegram-ap
 ```
 
+If the ESP32-CAM can see the AP but stays disconnected with Wi-Fi status `6`, force the AP to WPA2-only compatibility mode:
+
+```bash
+sudo nmcli connection modify wigglegram-ap wifi-sec.key-mgmt wpa-psk
+sudo nmcli connection modify wigglegram-ap wifi-sec.proto rsn
+sudo nmcli connection modify wigglegram-ap wifi-sec.pairwise ccmp
+sudo nmcli connection modify wigglegram-ap wifi-sec.group ccmp
+sudo nmcli connection modify wigglegram-ap 802-11-wireless-security.pmf 1
+sudo nmcli connection down wigglegram-ap
+sudo nmcli connection up wigglegram-ap
+```
+
 If it still fails, reboot and run:
 
 ```bash

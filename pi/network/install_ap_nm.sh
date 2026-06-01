@@ -52,8 +52,13 @@ nmcli connection modify "${AP_CONNECTION}" \
   ipv4.addresses "${AP_ADDRESS}" \
   ipv6.method ignore \
   wifi-sec.key-mgmt wpa-psk \
+  wifi-sec.proto rsn \
+  wifi-sec.pairwise ccmp \
+  wifi-sec.group ccmp \
   wifi-sec.psk "${AP_PASSWORD}" \
   connection.autoconnect yes
+
+nmcli connection modify "${AP_CONNECTION}" 802-11-wireless-security.pmf 1 >/dev/null 2>&1 || true
 
 echo "Starting AP connection, timeout ${CONNECT_TIMEOUT_SECONDS}s"
 if ! timeout "${CONNECT_TIMEOUT_SECONDS}" nmcli connection up "${AP_CONNECTION}"; then

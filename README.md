@@ -44,6 +44,21 @@ http://192.168.50.11
 
 See `pi/network/README.md` for the Raspberry Pi access point setup.
 
+## Web preview
+
+After Pi setup, start the preview/download web app:
+
+```bash
+cd pi
+./run_gallery.sh
+```
+
+Then open this from your phone or PC while connected to `WIGGLEGRAM_AP`:
+
+```text
+http://192.168.50.1:8080
+```
+
 ## Next phases
 
 - Add four camera IPs.

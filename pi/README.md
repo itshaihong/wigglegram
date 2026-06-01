@@ -6,7 +6,7 @@ On the Raspberry Pi:
 
 ```bash
 cd pi
-chmod +x setup_pi.sh run_once.sh
+chmod +x setup_pi.sh run_once.sh run_gallery.sh
 ./setup_pi.sh
 ```
 
@@ -44,6 +44,24 @@ Expected output files:
 captures/latest.jpg
 captures/wiggle.gif
 ```
+
+## Web preview and download
+
+Start the web gallery on the Pi:
+
+```bash
+cd ~/wigglegram/pi
+chmod +x run_gallery.sh
+./run_gallery.sh
+```
+
+From a phone or PC connected to `WIGGLEGRAM_AP`, open:
+
+```text
+http://192.168.50.1:8080
+```
+
+The page can preview `latest.jpg` and `wiggle.gif`, download files, refresh the gallery, and trigger a new capture.
 
 ## Notes
 
