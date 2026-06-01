@@ -1,6 +1,6 @@
 # ESP32-CAM Firmware
 
-This first firmware exposes a small HTTP API:
+This first firmware connects to the Raspberry Pi access point and exposes a small HTTP API:
 
 ```text
 GET  /status
@@ -14,12 +14,14 @@ POST /sleep
 1. Install the ESP32 board package in Arduino IDE.
 2. Install the `ArduinoJson` library.
 3. Open `esp32_cam_phase1/esp32_cam_phase1.ino`.
-4. Set:
+4. The default Wi-Fi settings match the Pi AP setup:
 
 ```cpp
-const char *WIFI_SSID = "YOUR_WIFI_SSID";
-const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+const char *WIFI_SSID = "WIGGLEGRAM_AP";
+const char *WIFI_PASSWORD = "Wigglegram2026";
 ```
+
+The default static ESP32-CAM IP is `192.168.50.11`.
 
 5. Select board: `AI Thinker ESP32-CAM`.
 6. Upload with GPIO0 connected to GND.

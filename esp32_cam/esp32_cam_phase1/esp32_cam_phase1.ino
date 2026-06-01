@@ -22,8 +22,12 @@
 #define HREF_GPIO_NUM 23
 #define PCLK_GPIO_NUM 22
 
-const char *WIFI_SSID = "YOUR_WIFI_SSID";
-const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+const char *WIFI_SSID = "WIGGLEGRAM_AP";
+const char *WIFI_PASSWORD = "Wigglegram2026";
+
+IPAddress localIp(192, 168, 50, 11);
+IPAddress gateway(192, 168, 50, 1);
+IPAddress subnet(255, 255, 255, 0);
 
 WebServer server(80);
 
@@ -164,6 +168,7 @@ void handleSleep() {
 void connectWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(true);
+  WiFi.config(localIp, gateway, subnet);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.print("Connecting to Wi-Fi");
