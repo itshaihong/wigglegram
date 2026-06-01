@@ -25,7 +25,10 @@
 const char *WIFI_SSID = "WIGGLEGRAM_AP";
 const char *WIFI_PASSWORD = "Wigglegram2026";
 
-IPAddress localIp(192, 168, 50, 11);
+// Flash each camera with a different index: 1, 2, 3, or 4.
+#define CAMERA_INDEX 1
+
+IPAddress localIp(192, 168, 50, 10 + CAMERA_INDEX);
 IPAddress gateway(192, 168, 50, 1);
 IPAddress subnet(255, 255, 255, 0);
 IPAddress dns(192, 168, 50, 1);
@@ -119,7 +122,7 @@ void handleConfig() {
     return;
   }
 
-  StaticJsonDocument<512> doc;
+  StaticJsonDocument<1024> doc;
   DeserializationError error = deserializeJson(doc, server.arg("plain"));
   if (error) {
     sendJson(400, "{\"ok\":false,\"error\":\"invalid JSON\"}");
@@ -147,11 +150,65 @@ void handleConfig() {
   if (doc.containsKey("saturation")) {
     sensor->set_saturation(sensor, doc["saturation"].as<int>());
   }
+  if (doc.containsKey("sharpness")) {
+    sensor->set_sharpness(sensor, doc["sharpness"].as<int>());
+  }
+  if (doc.containsKey("special_effect")) {
+    sensor->set_special_effect(sensor, doc["special_effect"].as<int>());
+  }
+  if (doc.containsKey("wb_mode")) {
+    sensor->set_wb_mode(sensor, doc["wb_mode"].as<int>());
+  }
+  if (doc.containsKey("awb")) {
+    sensor->set_whitebal(sensor, doc["awb"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("awb_gain")) {
+    sensor->set_awb_gain(sensor, doc["awb_gain"].as<bool>() ? 1 : 0);
+  }
   if (doc.containsKey("aec")) {
     sensor->set_exposure_ctrl(sensor, doc["aec"].as<bool>() ? 1 : 0);
   }
+  if (doc.containsKey("aec2")) {
+    sensor->set_aec2(sensor, doc["aec2"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("ae_level")) {
+    sensor->set_ae_level(sensor, doc["ae_level"].as<int>());
+  }
+  if (doc.containsKey("aec_value")) {
+    sensor->set_aec_value(sensor, doc["aec_value"].as<int>());
+  }
   if (doc.containsKey("agc")) {
     sensor->set_gain_ctrl(sensor, doc["agc"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("agc_gain")) {
+    sensor->set_agc_gain(sensor, doc["agc_gain"].as<int>());
+  }
+  if (doc.containsKey("gainceiling")) {
+    sensor->set_gainceiling(sensor, static_cast<gainceiling_t>(doc["gainceiling"].as<int>()));
+  }
+  if (doc.containsKey("bpc")) {
+    sensor->set_bpc(sensor, doc["bpc"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("wpc")) {
+    sensor->set_wpc(sensor, doc["wpc"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("raw_gma")) {
+    sensor->set_raw_gma(sensor, doc["raw_gma"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("lenc")) {
+    sensor->set_lenc(sensor, doc["lenc"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("vflip")) {
+    sensor->set_vflip(sensor, doc["vflip"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("hmirror")) {
+    sensor->set_hmirror(sensor, doc["hmirror"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("dcw")) {
+    sensor->set_dcw(sensor, doc["dcw"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("colorbar")) {
+    sensor->set_colorbar(sensor, doc["colorbar"].as<bool>() ? 1 : 0);
   }
 
   sendJson(200, "{\"ok\":true}");

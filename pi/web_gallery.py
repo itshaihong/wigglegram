@@ -14,7 +14,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from wigglegram_phase1 import run as run_capture
+import requests
+
+from wigglegram_phase1 import (
+    REQUEST_TIMEOUT_SECONDS,
+    Camera,
+    configure_camera,
+    load_config,
+    parse_cameras,
+    run as run_capture,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -30,6 +39,8 @@ capture_state = {
     "started_at": None,
     "finished_at": None,
 }
+
+FRAMESIZES = ["QQVGA", "QVGA", "CIF", "VGA", "SVGA", "XGA", "SXGA", "UXGA"]
 
 
 INDEX_HTML = """<!doctype html>
@@ -232,6 +243,129 @@ INDEX_HTML = """<!doctype html>
       gap: 12px;
     }
 
+    .control-panel {
+      margin: 18px 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(24, 32, 30, 0.08);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-title {
+      font-weight: 800;
+    }
+
+    .panel-subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 2px;
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      text-transform: uppercase;
+    }
+
+    .field output {
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 750;
+      margin-left: 5px;
+    }
+
+    select, input[type="range"] {
+      width: 100%;
+    }
+
+    select {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      padding: 0 10px;
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    .switches {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .switch {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+      background: #fbfcfa;
+    }
+
+    .camera-strip {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 0 14px 14px;
+    }
+
+    .camera-pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 750;
+      background: #fbfcfa;
+    }
+
+    .camera-pill.online {
+      color: var(--accent-dark);
+      border-color: rgba(15, 143, 131, 0.35);
+      background: rgba(15, 143, 131, 0.08);
+    }
+
+    .camera-pill.offline {
+      color: #9b4a36;
+      border-color: rgba(229, 111, 79, 0.35);
+      background: rgba(229, 111, 79, 0.08);
+    }
+
     .file-card {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -291,6 +425,14 @@ INDEX_HTML = """<!doctype html>
         grid-template-columns: 1fr;
       }
 
+      .settings-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .switches {
+        grid-template-columns: 1fr 1fr;
+      }
+
       .preview-media {
         min-height: 260px;
       }
@@ -317,6 +459,115 @@ INDEX_HTML = """<!doctype html>
       <span id="statusDot" class="dot"></span>
       <span id="statusText">Loading gallery</span>
     </div>
+
+    <section class="control-panel" aria-label="Camera settings">
+      <div class="panel-head">
+        <div>
+          <div class="panel-title">Camera Settings</div>
+          <div class="panel-subtitle">Applies the same profile to every configured camera.</div>
+        </div>
+        <button id="applySettingsBtn" type="button">Apply to All</button>
+      </div>
+
+      <div class="settings-grid">
+        <div class="field">
+          <label for="framesize">Resolution</label>
+          <select id="framesize" data-setting="framesize">
+            <option>QQVGA</option>
+            <option>QVGA</option>
+            <option>CIF</option>
+            <option>VGA</option>
+            <option selected>SVGA</option>
+            <option>XGA</option>
+            <option>SXGA</option>
+            <option>UXGA</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="quality">JPEG Quality <output id="qualityOut">12</output></label>
+          <input id="quality" data-setting="quality" type="range" min="4" max="63" value="12">
+        </div>
+        <div class="field">
+          <label for="brightness">Brightness <output id="brightnessOut">0</output></label>
+          <input id="brightness" data-setting="brightness" type="range" min="-2" max="2" value="0">
+        </div>
+        <div class="field">
+          <label for="contrast">Contrast <output id="contrastOut">0</output></label>
+          <input id="contrast" data-setting="contrast" type="range" min="-2" max="2" value="0">
+        </div>
+        <div class="field">
+          <label for="saturation">Saturation <output id="saturationOut">0</output></label>
+          <input id="saturation" data-setting="saturation" type="range" min="-2" max="2" value="0">
+        </div>
+        <div class="field">
+          <label for="sharpness">Sharpness <output id="sharpnessOut">0</output></label>
+          <input id="sharpness" data-setting="sharpness" type="range" min="-2" max="2" value="0">
+        </div>
+        <div class="field">
+          <label for="aec_value">Exposure <output id="aec_valueOut">300</output></label>
+          <input id="aec_value" data-setting="aec_value" type="range" min="0" max="1200" value="300">
+        </div>
+        <div class="field">
+          <label for="ae_level">AE Level <output id="ae_levelOut">0</output></label>
+          <input id="ae_level" data-setting="ae_level" type="range" min="-2" max="2" value="0">
+        </div>
+        <div class="field">
+          <label for="agc_gain">AGC Gain <output id="agc_gainOut">0</output></label>
+          <input id="agc_gain" data-setting="agc_gain" type="range" min="0" max="30" value="0">
+        </div>
+        <div class="field">
+          <label for="gainceiling">Gain Ceiling</label>
+          <select id="gainceiling" data-setting="gainceiling">
+            <option value="0">2x</option>
+            <option value="1">4x</option>
+            <option value="2">8x</option>
+            <option value="3">16x</option>
+            <option value="4">32x</option>
+            <option value="5">64x</option>
+            <option value="6">128x</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="wb_mode">White Balance</label>
+          <select id="wb_mode" data-setting="wb_mode">
+            <option value="0">Auto</option>
+            <option value="1">Sunny</option>
+            <option value="2">Cloudy</option>
+            <option value="3">Office</option>
+            <option value="4">Home</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="special_effect">Effect</label>
+          <select id="special_effect" data-setting="special_effect">
+            <option value="0">None</option>
+            <option value="1">Negative</option>
+            <option value="2">Grayscale</option>
+            <option value="3">Red Tint</option>
+            <option value="4">Green Tint</option>
+            <option value="5">Blue Tint</option>
+            <option value="6">Sepia</option>
+          </select>
+        </div>
+
+        <div class="switches">
+          <label class="switch"><input data-setting="awb" type="checkbox" checked> AWB</label>
+          <label class="switch"><input data-setting="awb_gain" type="checkbox" checked> AWB Gain</label>
+          <label class="switch"><input data-setting="aec" type="checkbox" checked> AEC</label>
+          <label class="switch"><input data-setting="aec2" type="checkbox"> AEC DSP</label>
+          <label class="switch"><input data-setting="agc" type="checkbox" checked> AGC</label>
+          <label class="switch"><input data-setting="bpc" type="checkbox"> BPC</label>
+          <label class="switch"><input data-setting="wpc" type="checkbox" checked> WPC</label>
+          <label class="switch"><input data-setting="raw_gma" type="checkbox" checked> Raw GMA</label>
+          <label class="switch"><input data-setting="lenc" type="checkbox" checked> Lens Correct</label>
+          <label class="switch"><input data-setting="vflip" type="checkbox"> V Flip</label>
+          <label class="switch"><input data-setting="hmirror" type="checkbox"> H Mirror</label>
+          <label class="switch"><input data-setting="dcw" type="checkbox" checked> DCW</label>
+          <label class="switch"><input data-setting="colorbar" type="checkbox"> Color Bar</label>
+        </div>
+      </div>
+      <div id="cameraStrip" class="camera-strip"></div>
+    </section>
 
     <section class="preview-grid">
       <article class="preview">
@@ -346,6 +597,9 @@ INDEX_HTML = """<!doctype html>
     const statusText = document.getElementById('statusText');
     const captureBtn = document.getElementById('captureBtn');
     const refreshBtn = document.getElementById('refreshBtn');
+    const applySettingsBtn = document.getElementById('applySettingsBtn');
+    const cameraStrip = document.getElementById('cameraStrip');
+    const settingInputs = Array.from(document.querySelectorAll('[data-setting]'));
     let selectedName = null;
 
     function formatBytes(bytes) {
@@ -358,7 +612,51 @@ INDEX_HTML = """<!doctype html>
       const running = Boolean(state.running);
       statusDot.classList.toggle('busy', running);
       captureBtn.disabled = running;
+      applySettingsBtn.disabled = running;
       statusText.textContent = state.message || (running ? 'Capturing' : 'Ready');
+    }
+
+    function readSettings() {
+      const settings = {};
+      settingInputs.forEach((input) => {
+        const key = input.dataset.setting;
+        if (input.type === 'checkbox') {
+          settings[key] = input.checked;
+        } else if (input.tagName.toLowerCase() === 'select' && key === 'framesize') {
+          settings[key] = input.value;
+        } else {
+          settings[key] = Number(input.value);
+        }
+      });
+      return settings;
+    }
+
+    function writeSettings(settings) {
+      settingInputs.forEach((input) => {
+        const key = input.dataset.setting;
+        if (!(key in settings)) return;
+        if (input.type === 'checkbox') {
+          input.checked = Boolean(settings[key]);
+        } else {
+          input.value = settings[key];
+        }
+        syncOutput(input);
+      });
+    }
+
+    function syncOutput(input) {
+      const output = document.getElementById(`${input.dataset.setting}Out`);
+      if (output) output.textContent = input.value;
+    }
+
+    function renderCameras(cameras) {
+      cameraStrip.innerHTML = '';
+      cameras.forEach((camera) => {
+        const pill = document.createElement('div');
+        pill.className = `camera-pill ${camera.online ? 'online' : 'offline'}`;
+        pill.textContent = `${camera.name} ${camera.online ? 'online' : 'offline'}`;
+        cameraStrip.appendChild(pill);
+      });
     }
 
     function chooseDefault(files) {
@@ -373,7 +671,7 @@ INDEX_HTML = """<!doctype html>
       const mediaUrl = `/media/${encodeURIComponent(file.name)}?t=${Date.now()}`;
       previewMedia.innerHTML = `<img src="${mediaUrl}" alt="${file.name}">`;
       previewName.textContent = file.name;
-      previewMeta.textContent = `${formatBytes(file.size)} · ${file.modified}`;
+      previewMeta.textContent = `${formatBytes(file.size)} - ${file.modified}`;
       downloadBtn.hidden = false;
       downloadBtn.href = `/download/${encodeURIComponent(file.name)}`;
       downloadBtn.download = file.name;
@@ -403,7 +701,7 @@ INDEX_HTML = """<!doctype html>
           <img class="thumb" src="/media/${encodeURIComponent(file.name)}?t=${Date.now()}" alt="">
           <div>
             <div class="file-title">${file.name}</div>
-            <div class="file-meta">${formatBytes(file.size)} · ${file.modified}</div>
+            <div class="file-meta">${formatBytes(file.size)} - ${file.modified}</div>
             <div class="file-row-actions">
               <a class="mini-link" href="/download/${encodeURIComponent(file.name)}" download>Download</a>
             </div>
@@ -427,6 +725,27 @@ INDEX_HTML = """<!doctype html>
       renderFiles(data.files);
     }
 
+    async function loadSettings() {
+      const response = await fetch('/api/settings', { cache: 'no-store' });
+      const data = await response.json();
+      writeSettings(data.settings || {});
+      renderCameras(data.cameras || []);
+    }
+
+    async function applySettings() {
+      applySettingsBtn.disabled = true;
+      statusText.textContent = 'Applying settings to all cameras';
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(readSettings())
+      });
+      const data = await response.json();
+      renderCameras(data.cameras || []);
+      statusText.textContent = data.message || 'Settings applied';
+      applySettingsBtn.disabled = false;
+    }
+
     async function capture() {
       setStatus({ running: true, message: 'Capturing image' });
       const response = await fetch('/api/capture', { method: 'POST' });
@@ -437,7 +756,10 @@ INDEX_HTML = """<!doctype html>
 
     refreshBtn.addEventListener('click', loadGallery);
     captureBtn.addEventListener('click', capture);
+    applySettingsBtn.addEventListener('click', applySettings);
+    settingInputs.forEach((input) => input.addEventListener('input', () => syncOutput(input)));
     loadGallery();
+    loadSettings();
     setInterval(loadGallery, 5000);
   </script>
 </body>
@@ -476,6 +798,100 @@ def safe_media_path(output_dir: Path, raw_name: str) -> Path | None:
     if not path.is_file() or path.suffix.lower() not in ALLOWED_EXTENSIONS:
         return None
     return path
+
+
+def load_gallery_config(config_path: Path) -> dict[str, object]:
+    if not config_path.exists():
+        raise FileNotFoundError(f"Missing config file: {config_path}")
+    return load_config(config_path)
+
+
+def write_gallery_config(config_path: Path, config: dict[str, object]) -> None:
+    config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+
+
+def base_settings(config: dict[str, object]) -> dict[str, object]:
+    cameras = config.get("cameras", [])
+    if not isinstance(cameras, list) or not cameras:
+        return {}
+    first = cameras[0]
+    if not isinstance(first, dict):
+        return {}
+    settings = first.get("config", {})
+    return dict(settings) if isinstance(settings, dict) else {}
+
+
+def save_settings_for_all(config_path: Path, settings: dict[str, object]) -> dict[str, object]:
+    config = load_gallery_config(config_path)
+    cameras = config.get("cameras", [])
+    if not isinstance(cameras, list):
+        raise ValueError("config.cameras must be a list")
+
+    for camera in cameras:
+        if isinstance(camera, dict):
+            camera["config"] = dict(settings)
+
+    write_gallery_config(config_path, config)
+    return config
+
+
+def camera_status(camera: Camera) -> dict[str, object]:
+    try:
+        response = requests.get(
+            f"{camera.base_url}/status",
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        body = response.json()
+        return {"name": camera.name, "base_url": camera.base_url, "online": True, "status": body}
+    except Exception as exc:  # noqa: BLE001 - returned to local camera UI.
+        return {
+            "name": camera.name,
+            "base_url": camera.base_url,
+            "online": False,
+            "error": str(exc),
+        }
+
+
+def list_cameras(config_path: Path, probe: bool = False) -> list[dict[str, object]]:
+    config = load_gallery_config(config_path)
+    cameras = parse_cameras(config)
+    if probe:
+        return [camera_status(camera) for camera in cameras]
+    return [{"name": camera.name, "base_url": camera.base_url, "online": False} for camera in cameras]
+
+
+def broadcast_settings(config_path: Path, settings: dict[str, object]) -> list[dict[str, object]]:
+    config = save_settings_for_all(config_path, settings)
+    results = []
+    for camera in parse_cameras(config):
+        try:
+            response = configure_camera(Camera(camera.name, camera.base_url, dict(settings)))
+            results.append(
+                {
+                    "name": camera.name,
+                    "base_url": camera.base_url,
+                    "online": True,
+                    "response": response,
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 - returned to local camera UI.
+            results.append(
+                {
+                    "name": camera.name,
+                    "base_url": camera.base_url,
+                    "online": False,
+                    "error": str(exc),
+                }
+            )
+    return results
+
+
+def read_request_json(handler: BaseHTTPRequestHandler) -> dict[str, object]:
+    length = int(handler.headers.get("Content-Length", "0"))
+    if length <= 0:
+        return {}
+    return json.loads(handler.rfile.read(length).decode("utf-8"))
 
 
 def start_capture(config_path: Path) -> None:
@@ -569,6 +985,16 @@ class GalleryHandler(BaseHTTPRequestHandler):
             self.send_json({"files": list_capture_files(self.output_dir), "capture": capture_state})
             return
 
+        if path == "/api/settings":
+            config = load_gallery_config(self.config_path)
+            self.send_json(
+                {
+                    "settings": base_settings(config),
+                    "cameras": list_cameras(self.config_path, probe=True),
+                }
+            )
+            return
+
         if path.startswith("/media/"):
             media_path = safe_media_path(self.output_dir, path.removeprefix("/media/"))
             if media_path:
@@ -589,16 +1015,34 @@ class GalleryHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API.
         path = self.path.split("?", 1)[0]
-        if path != "/api/capture":
-            self.send_error(HTTPStatus.NOT_FOUND)
+        if path == "/api/settings":
+            try:
+                settings = read_request_json(self)
+                results = broadcast_settings(self.config_path, settings)
+            except Exception as exc:  # noqa: BLE001 - returned to local camera UI.
+                self.send_json({"message": f"Settings failed: {exc}"}, HTTPStatus.BAD_REQUEST)
+                return
+
+            online_count = sum(1 for result in results if result.get("online"))
+            self.send_json(
+                {
+                    "message": f"Settings applied to {online_count}/{len(results)} cameras",
+                    "settings": settings,
+                    "cameras": results,
+                }
+            )
             return
 
-        if capture_state["running"]:
-            self.send_json({"capture": capture_state}, HTTPStatus.CONFLICT)
+        if path == "/api/capture":
+            if capture_state["running"]:
+                self.send_json({"capture": capture_state}, HTTPStatus.CONFLICT)
+                return
+
+            start_capture(self.config_path)
+            self.send_json({"capture": capture_state}, HTTPStatus.ACCEPTED)
             return
 
-        start_capture(self.config_path)
-        self.send_json({"capture": capture_state}, HTTPStatus.ACCEPTED)
+        self.send_error(HTTPStatus.NOT_FOUND)
 
 
 def main() -> None:
@@ -609,7 +1053,23 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR, help="Capture output directory")
     args = parser.parse_args()
 
-    server = ThreadingHTTPServer((args.host, args.port), GalleryHandler)
+    try:
+        server = ThreadingHTTPServer((args.host, args.port), GalleryHandler)
+    except OSError as exc:
+        if exc.errno == 98:
+            print(f"Port {args.port} is already in use.")
+            print("A gallery server may already be running.")
+            print()
+            print(f"Try opening: http://192.168.50.1:{args.port}")
+            print()
+            print("Or stop the existing process:")
+            print(f"  sudo lsof -i :{args.port}")
+            print("  kill <PID>")
+            print()
+            print("Or start on another port:")
+            print("  python web_gallery.py --port 8081 --config config.json --output-dir captures")
+            raise SystemExit(1) from exc
+        raise
     server.config_path = args.config.resolve()  # type: ignore[attr-defined]
     server.output_dir = args.output_dir.resolve()  # type: ignore[attr-defined]
 

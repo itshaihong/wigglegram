@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -103,27 +104,35 @@ def run(config_path: Path) -> None:
         output_dir = config_path.parent / output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    if len(cameras) != 1:
-        raise RuntimeError("Phase 1 expects exactly one camera in the config file")
+    image_paths = []
+    for camera in cameras:
+        try:
+            print(f"Checking {camera.name} at {camera.base_url}")
+            status = check_status(camera)
+            print(f"{camera.name} status: {status}")
 
-    camera = cameras[0]
+            print(f"Sending {camera.name} configuration")
+            config_response = configure_camera(camera)
+            print(f"{camera.name} config response: {config_response}")
 
-    print(f"Checking {camera.name} at {camera.base_url}")
-    status = check_status(camera)
-    print(f"Camera status: {status}")
+            jpg_path = output_dir / f"latest_{camera.name}.jpg"
+            print(f"Capturing {camera.name} JPEG to {jpg_path}")
+            capture_jpeg(camera, jpg_path)
+            image_paths.append(jpg_path)
+        except Exception as exc:  # noqa: BLE001 - continue with cameras that are online.
+            print(f"Skipping {camera.name}: {exc}")
 
-    print("Sending camera configuration")
-    config_response = configure_camera(camera)
-    print(f"Config response: {config_response}")
+    if not image_paths:
+        raise RuntimeError("No cameras captured successfully")
 
-    jpg_path = output_dir / "latest.jpg"
-    print(f"Capturing JPEG to {jpg_path}")
-    capture_jpeg(camera, jpg_path)
+    if len(image_paths) == 1:
+        shutil.copyfile(image_paths[0], output_dir / "latest.jpg")
 
     gif_path = output_dir / "wiggle.gif"
     duration_ms = int(raw_config.get("gif", {}).get("duration_ms", 140))
     print(f"Creating GIF at {gif_path}")
-    make_gif([jpg_path], gif_path, duration_ms)
+    gif_frames = image_paths + image_paths[-2:0:-1]
+    make_gif(gif_frames, gif_path, duration_ms)
 
     print("Done")
 

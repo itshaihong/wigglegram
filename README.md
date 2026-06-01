@@ -59,6 +59,8 @@ Then open this from your phone or PC while connected to `WIGGLEGRAM_AP`:
 http://192.168.50.1:8080
 ```
 
+The web app can preview captures, download files, trigger capture, and apply the same camera settings to all four configured cameras.
+
 ## Next phases
 
 - Add four camera IPs.

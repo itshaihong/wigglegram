@@ -10,9 +10,42 @@
         "brightness": 0,
         "contrast": 0,
         "saturation": 0,
+        "sharpness": 0,
+        "special_effect": 0,
+        "wb_mode": 0,
+        "awb": true,
+        "awb_gain": true,
         "aec": true,
-        "agc": true
+        "aec2": false,
+        "ae_level": 0,
+        "aec_value": 300,
+        "agc": true,
+        "agc_gain": 0,
+        "gainceiling": 0,
+        "bpc": false,
+        "wpc": true,
+        "raw_gma": true,
+        "lenc": true,
+        "vflip": false,
+        "hmirror": false,
+        "dcw": true,
+        "colorbar": false
       }
+    },
+    {
+      "name": "cam2",
+      "base_url": "http://192.168.50.12",
+      "config": {}
+    },
+    {
+      "name": "cam3",
+      "base_url": "http://192.168.50.13",
+      "config": {}
+    },
+    {
+      "name": "cam4",
+      "base_url": "http://192.168.50.14",
+      "config": {}
     }
   ],
   "gif": {

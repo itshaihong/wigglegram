@@ -63,6 +63,15 @@ http://192.168.50.1:8080
 
 The page can preview `latest.jpg` and `wiggle.gif`, download files, refresh the gallery, and trigger a new capture.
 
+It also includes camera controls based on the ESP32-CAM CameraWebServer demo:
+
+```text
+resolution, JPEG quality, brightness, contrast, saturation, sharpness,
+white balance, exposure, gain, mirror/flip, lens correction, and colorbar
+```
+
+Press `Apply to All` to send the same settings to every camera listed in `config.json`.
+
 ## Notes
 
-The first phase uses normal HTTP requests. This is simple and reliable for one camera. The synchronized multi-camera phase should keep HTTP for setup and image transfer, then add UDP broadcast for capture triggering.
+This phase uses normal HTTP requests for settings and image transfer. The synchronized multi-camera phase should add UDP broadcast for capture triggering.

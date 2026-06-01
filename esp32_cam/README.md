@@ -21,7 +21,22 @@ const char *WIFI_SSID = "WIGGLEGRAM_AP";
 const char *WIFI_PASSWORD = "Wigglegram2026";
 ```
 
-The default static ESP32-CAM IP is `192.168.50.11`.
+Set this before flashing each camera:
+
+```cpp
+#define CAMERA_INDEX 1
+```
+
+Use:
+
+```text
+Camera 1: CAMERA_INDEX 1 -> 192.168.50.11
+Camera 2: CAMERA_INDEX 2 -> 192.168.50.12
+Camera 3: CAMERA_INDEX 3 -> 192.168.50.13
+Camera 4: CAMERA_INDEX 4 -> 192.168.50.14
+```
+
+The web app broadcasts settings to all cameras configured in `pi/config.json`.
 
 5. Select board: `AI Thinker ESP32-CAM`.
 6. Upload with GPIO0 connected to GND.
