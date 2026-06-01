@@ -1,0 +1,21 @@
+{
+  "output_dir": "captures",
+  "cameras": [
+    {
+      "name": "cam1",
+      "base_url": "http://192.168.50.11",
+      "config": {
+        "framesize": "SVGA",
+        "quality": 12,
+        "brightness": 0,
+        "contrast": 0,
+        "saturation": 0,
+        "aec": true,
+        "agc": true
+      }
+    }
+  ],
+  "gif": {
+    "duration_ms": 140
+  }
+}
