@@ -67,3 +67,20 @@ The web app can preview captures, download files, trigger capture, and apply the
 - Add UDP broadcast capture trigger.
 - Add GIF frame order `1, 2, 3, 4, 3, 2`.
 - Add idle/sleep commands and physical trigger button.
+
+
+## Notes on switching between network connections
+
+- Shutting off and bringing up of wigglegram intranet:
+```
+sudo nmcli connection down wigglegram-ap
+sudo nmcli connection up wigglegram-ap
+```
+- SSH from wigglegram intranet to pi:
+```
+ssh haihong@192.168.50.1
+```
+- SSH from phone hotspot to pi:
+```
+ssh haihong@172.20.10.2
+```

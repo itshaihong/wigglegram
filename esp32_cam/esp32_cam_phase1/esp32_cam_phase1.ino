@@ -24,6 +24,8 @@
 
 const char *WIFI_SSID = "WIGGLEGRAM_AP";
 const char *WIFI_PASSWORD = "Wigglegram2026";
+// const char *WIFI_SSID = "haihong";
+// const char *WIFI_PASSWORD = "yuhaihong";
 
 // Flash each camera with a different index: 1, 2, 3, or 4.
 #define CAMERA_INDEX 1
